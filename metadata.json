@@ -1,0 +1,5 @@
+
+{
+  "name": "Bracket Tournament Generator",
+  "description": "A simple web app to create and manage single-elimination bracket tournaments. Users can specify the number of participants, enter their names, and then click through the rounds to determine a winner. Matchups are randomized at each stage."
+}
