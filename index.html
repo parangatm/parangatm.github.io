@@ -6,15 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bracket Tournament Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
-  }
-}
-</script>
+    
+    <!-- Babel for in-browser JSX & TypeScript transpilation -->
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+    
+    <!-- React & ReactDOM from a CDN (UMD builds) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
     <style>
       @keyframes fall {
         0% {
@@ -41,11 +40,452 @@
         }
       }
     </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
 <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gradient-to-br from-[#020617] to-[#111827] text-slate-100">
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+    
+    <script type="text/babel">
+      // Since we are not using modules, React and ReactDOM are available on the global `window` object.
+      const { useState, useEffect, useCallback } = React;
+
+      // --- From types.ts ---
+      const AppState = {
+        SETUP: 0,
+        ENTRY: 1,
+        TOURNAMENT: 2,
+        FINISHED: 3,
+      };
+
+      // --- From components/icons.tsx ---
+      const CrownIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+          <path fillRule="evenodd" d="M13.19 3.32a.75.75 0 01.442.883l-1.334 4.004.986.328a.75.75 0 01.53.92l-1.034 3.102.986.329a.75.75 0 01.53.92l-1.033 3.1.985.33a.75.75 0 01.532.92l-1.18 3.54a.75.75 0 01-1.408-.47L12.5 18.57l-1.12 3.36a.75.75 0 01-1.408-.47l1.18-3.54a.75.75 0 01.532-.92l.985-.33-1.033-3.1a.75.75 0 01.53-.92l.986-.329-1.034-3.102a.75.75 0 01.53-.92l.986-.328-1.334-4.004a.75.75 0 01.882-.442zM12 2.25a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75zM11.5 18.57l-1.12 3.36a.75.75 0 01-1.408-.47l1.18-3.54a.75.75 0 01.532-.92l.985-.33-1.033-3.1a.75.75 0 01.53-.92l.986-.329-1.034-3.102a.75.75 0 01.53-.92l.986-.328-1.334-4.004a.75.75 0 01.882-.442.75.75 0 01.442.883L9.833 8.25l.986.328a.75.75 0 01.53.92L10.315 12.6l.986.329a.75.75 0 01.53.92l-1.033 3.1.985.33a.75.75 0 01.532.92l-1.18 3.54a.75.75 0 01-1.408-.47L11.5 18.57z" clipRule="evenodd" />
+          <path d="M4.5 1.5a.75.75 0 00-1.5 0v3a.75.75 0 001.5 0v-3zM21 1.5a.75.75 0 00-1.5 0v3a.75.75 0 001.5 0v-3z" />
+        </svg>
+      );
+
+      // --- From components/WinnerDisplay.tsx ---
+      const ConfettiPiece = ({ style }) => (
+          <div className="absolute w-2 h-4" style={style}></div>
+      );
+
+      const Confetti = () => {
+          const colors = ['#fde047', '#f97316', '#a855f7', '#22c55e', '#3b82f6'];
+          const pieces = Array.from({ length: 150 }).map((_, i) => {
+            const style = {
+              left: `${Math.random() * 100}%`,
+              backgroundColor: colors[Math.floor(Math.random() * colors.length)],
+              transform: `rotate(${Math.random() * 360}deg)`,
+              animation: `fall ${3 + Math.random() * 4}s ${Math.random() * 2}s linear forwards`,
+            };
+            return <ConfettiPiece key={i} style={style} />;
+          });
+        
+          return <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">{pieces}</div>;
+      };
+
+      const WinnerDisplay = ({ winner, onReset }) => {
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="relative bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md text-center flex flex-col items-center overflow-hidden">
+              <Confetti />
+              <div className="relative z-10">
+                  <h2 className="text-xl font-semibold text-slate-400 mb-2">Tournament Champion</h2>
+                  <div className="flex items-center justify-center gap-4 my-4">
+                  <CrownIcon className="w-12 h-12 text-yellow-400" />
+                  <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">
+                      {winner.name}
+                  </p>
+                  </div>
+                  <button
+                  onClick={onReset}
+                  className="mt-6 w-full px-4 py-2 bg-purple-600 rounded-md font-semibold hover:bg-purple-700 transition-colors"
+                  >
+                  Start New Tournament
+                  </button>
+              </div>
+              </div>
+          </div>
+        );
+      };
+      
+      // --- From components/TournamentBracket.tsx ---
+      const MatchCard = ({ match, participants, onSelectWinner, isClickable }) => {
+        const [p1Id, p2Id] = match.participantIds;
+
+        const getParticipant = (id) => id === null ? null : participants.find(p => p.id === id);
+
+        const participant1 = getParticipant(p1Id);
+        const participant2 = getParticipant(p2Id);
+
+        const getParticipantClasses = (participant, isWinner) => {
+          let classes = 'px-4 py-3 rounded-md transition-all duration-300 w-full text-left relative overflow-hidden';
+          if (match.winnerId !== null) {
+            if (isWinner) {
+              classes += ' font-bold bg-green-500/20 text-green-300 animate-[winner-pop_0.5s_ease-out]';
+            } else {
+              classes += ' text-slate-500 opacity-70';
+            }
+          } else if (isClickable && participant) {
+            classes += ' cursor-pointer group hover:bg-purple-600/50';
+          } else {
+            classes += ' bg-slate-800';
+          }
+          return classes;
+        };
+        
+        const createParticipantDiv = (participant) => {
+          const isWinner = match.winnerId === participant?.id;
+          return (
+            <div
+              className={getParticipantClasses(participant, isWinner)}
+              onClick={() => isClickable && participant && onSelectWinner(match.id, participant.id)}
+            >
+              <span className="truncate">{participant?.name ?? 'TBD'}</span>
+              {isClickable && participant && <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>}
+            </div>
+          );
+        };
+
+        return (
+          <div className="bg-slate-800/50 rounded-lg shadow-lg w-64 backdrop-blur-sm border border-slate-700">
+            <div className="flex flex-col gap-1 p-1">
+              {createParticipantDiv(participant1)}
+              {createParticipantDiv(participant2)}
+            </div>
+          </div>
+        );
+      };
+
+      const TournamentBracket = ({ rounds, participants, onSelectWinner }) => {
+        const latestRoundWithProgress = rounds.slice().reverse().find(r => r.matches.some(m => m.winnerId !== null))?.id ?? 0;
+        const currentRoundId = rounds.find(r => r.matches.some(m => m.winnerId === null))?.id ?? latestRoundWithProgress;
+
+        return (
+          <div className="w-full">
+            <div className="relative">
+              <div className="flex items-start p-4 space-x-16 md:space-x-24 overflow-x-auto">
+                {rounds.map(round => (
+                  <div key={round.id} className="flex flex-col justify-around min-h-full space-y-4 flex-shrink-0">
+                    <h3 className="text-xl font-bold text-cyan-300 text-center mb-4 sticky top-0 bg-slate-900/50 backdrop-blur-sm py-2 rounded-lg">{round.title}</h3>
+                    <div className="flex flex-col gap-12">
+                        {round.matches.map(match => (
+                        <MatchCard
+                            key={match.id}
+                            match={match}
+                            participants={participants}
+                            onSelectWinner={onSelectWinner}
+                            isClickable={round.id === currentRoundId && match.winnerId === null}
+                        />
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      };
+      
+      // --- From components/EntryScreen.tsx ---
+      const EntryScreen = ({ numParticipants, onEntriesComplete }) => {
+        const [entries, setEntries] = useState(Array(numParticipants).fill(''));
+
+        const handleInputChange = (index, value) => {
+          const newEntries = [...entries];
+          newEntries[index] = value;
+          setEntries(newEntries);
+        };
+
+        const allEntriesFilled = entries.every(entry => entry.trim() !== '');
+
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          if (allEntriesFilled) {
+            onEntriesComplete(entries);
+          }
+        };
+        
+        const fillDummyData = () => {
+          const dummyEntries = Array.from({ length: numParticipants }, (_, i) => `Participant ${i + 1}`);
+          setEntries(dummyEntries);
+        };
+
+        return (
+          <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-lg">
+            <h2 className="text-2xl font-bold mb-4 text-cyan-300 text-center">Enter Participants ({numParticipants})</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
+                  {entries.map((entry, index) => (
+                  <div key={index}>
+                      <label className="text-sm font-medium text-slate-400" htmlFor={`entry-${index}`}>
+                      Participant {index + 1}
+                      </label>
+                      <input
+                      id={`entry-${index}`}
+                      type="text"
+                      value={entry}
+                      onChange={e => handleInputChange(index, e.target.value)}
+                      className="mt-1 w-full p-2 bg-slate-700 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      required
+                      />
+                  </div>
+                  ))}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                  <button
+                  type="button"
+                  onClick={fillDummyData}
+                  className="w-full px-4 py-2 bg-slate-600 rounded-md font-semibold hover:bg-slate-500 transition-colors"
+                  >
+                  Fill Dummy Data
+                  </button>
+                  <button
+                  type="submit"
+                  disabled={!allEntriesFilled}
+                  className="w-full px-4 py-2 bg-purple-600 rounded-md font-semibold hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
+                  >
+                  Generate Bracket
+                  </button>
+              </div>
+            </form>
+          </div>
+        );
+      };
+      
+      // --- From components/SetupScreen.tsx ---
+      const SetupScreen = ({ onSetupComplete }) => {
+        const participantOptions = [4, 8, 16, 32];
+        const [selectedCount, setSelectedCount] = useState(null);
+        const [title, setTitle] = useState('');
+
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          if (selectedCount && title.trim()) {
+            onSetupComplete(selectedCount, title.trim());
+          }
+        };
+
+        return (
+          <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md text-center">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2 text-cyan-300">New Tournament</h2>
+                <p className="text-slate-400 mb-4">First, give your tournament a name.</p>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="e.g., Office Ping-Pong Championship"
+                  className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  required
+                />
+              </div>
+              <div>
+                <p className="text-slate-400 mb-4">How many participants will compete?</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {participantOptions.map(option => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setSelectedCount(option)}
+                      className={`p-4 rounded-lg text-xl font-semibold transform transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${
+                        selectedCount === option
+                          ? 'bg-purple-600 ring-purple-500'
+                          : 'bg-slate-700 hover:bg-slate-600'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={!selectedCount || !title.trim()}
+                className="w-full px-4 py-3 bg-purple-600 rounded-md font-semibold hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
+              >
+                Create Tournament
+              </button>
+            </form>
+          </div>
+        );
+      };
+
+      // --- From App.tsx ---
+      // Fisher-Yates shuffle algorithm
+      const shuffle = (array) => {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+      };
+
+      function App() {
+        const [appState, setAppState] = useState(AppState.SETUP);
+        const [numParticipants, setNumParticipants] = useState(0);
+        const [participants, setParticipants] = useState([]);
+        const [rounds, setRounds] = useState([]);
+        const [winner, setWinner] = useState(null);
+        const [tournamentTitle, setTournamentTitle] = useState('');
+
+        const handleSetupComplete = (count, title) => {
+          setNumParticipants(count);
+          setTournamentTitle(title);
+          setAppState(AppState.ENTRY);
+        };
+
+        const handleEntriesComplete = (names) => {
+          const newParticipants = names.map((name, index) => ({
+            id: index,
+            name: name,
+          }));
+          setParticipants(newParticipants);
+
+          const shuffledParticipants = shuffle(newParticipants);
+
+          const firstRoundMatches = [];
+          for (let i = 0; i < shuffledParticipants.length; i += 2) {
+            firstRoundMatches.push({
+              id: i / 2,
+              participantIds: [shuffledParticipants[i].id, shuffledParticipants[i + 1].id],
+              winnerId: null,
+            });
+          }
+
+          const firstRound = {
+            id: 0,
+            title: `Round 1`,
+            matches: firstRoundMatches,
+          };
+
+          setRounds([firstRound]);
+          setAppState(AppState.TOURNAMENT);
+        };
+
+        const handleSelectWinner = (matchId, winnerId) => {
+          setRounds(prevRounds =>
+            prevRounds.map(round => ({
+              ...round,
+              matches: round.matches.map(match =>
+                match.id === matchId ? { ...match, winnerId } : match
+              ),
+            }))
+          );
+        };
+
+        const handleReset = () => {
+          setAppState(AppState.SETUP);
+          setNumParticipants(0);
+          setParticipants([]);
+          setRounds([]);
+          setWinner(null);
+          setTournamentTitle('');
+        };
+        
+        const generateNextRound = useCallback(() => {
+          if (appState !== AppState.TOURNAMENT || rounds.length === 0) {
+            return;
+          }
+
+          const lastRound = rounds[rounds.length - 1];
+          const isRoundComplete = lastRound.matches.every(m => m.winnerId !== null);
+
+          if (!isRoundComplete) {
+            return;
+          }
+
+          if (lastRound.matches.length === 1) {
+            const finalWinner = participants.find(p => p.id === lastRound.matches[0].winnerId);
+            if (finalWinner) {
+              setWinner(finalWinner);
+              setAppState(AppState.FINISHED);
+            }
+            return;
+          }
+
+          const winners = lastRound.matches
+            .map(match => participants.find(p => p.id === match.winnerId))
+            .filter((p) => p !== undefined);
+
+          const shuffledWinners = shuffle(winners);
+
+          const nextRoundMatches = [];
+          for (let i = 0; i < shuffledWinners.length; i += 2) {
+            nextRoundMatches.push({
+              id: (lastRound.id + 1) * 100 + i / 2,
+              participantIds: [shuffledWinners[i].id, shuffledWinners[i + 1]?.id ?? null],
+              winnerId: null,
+            });
+          }
+          
+          const roundTitles = {
+            2: "Final",
+            4: "Semi-Finals",
+            8: "Quarter-Finals",
+          };
+          
+          const numCompetitorsInNextRound = nextRoundMatches.length * 2;
+          const title = roundTitles[numCompetitorsInNextRound] ?? `Round ${rounds.length + 1}`;
+
+          const nextRound = {
+            id: rounds.length,
+            title: title,
+            matches: nextRoundMatches,
+          };
+          
+          setRounds(prevRounds => [...prevRounds, nextRound]);
+        }, [appState, rounds, participants]);
+
+        useEffect(() => {
+          generateNextRound();
+        }, [rounds, generateNextRound]);
+
+        return (
+          <div className="min-h-screen bg-transparent text-slate-100 flex flex-col items-center p-4">
+            <header className="w-full text-center mb-8">
+              <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">
+                {tournamentTitle || 'Bracket Night'}
+              </h1>
+            </header>
+            <main className="w-full flex-grow flex items-center justify-center">
+              {appState === AppState.SETUP && <SetupScreen onSetupComplete={handleSetupComplete} />}
+              {appState === AppState.ENTRY && <EntryScreen numParticipants={numParticipants} onEntriesComplete={handleEntriesComplete} />}
+              {(appState === AppState.TOURNAMENT || appState === AppState.FINISHED) && (
+                <TournamentBracket rounds={rounds} participants={participants} onSelectWinner={handleSelectWinner} />
+              )}
+              {appState === AppState.FINISHED && winner && (
+                <WinnerDisplay winner={winner} onReset={handleReset} />
+              )}
+            </main>
+          </div>
+        );
+      }
+
+      // --- From index.tsx ---
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element to mount to");
+      }
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    </script>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
